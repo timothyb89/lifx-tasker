@@ -1,0 +1,24 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"
+              android:orientation="vertical">
+	
+	<TextView
+		android:id="@+id/gateway_field"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/gateway_waiting" />
+
+	<Button
+		android:id="@+id/gateway_bulbs_off"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/gateway_bulbs_off"/>
+
+	<Button
+		android:id="@+id/gateway_bulbs_on"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="@string/gateway_bulbs_on"/>
+
+</LinearLayout>

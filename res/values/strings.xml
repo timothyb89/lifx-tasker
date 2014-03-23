@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">LIFX Tasker Plugin</string>
+    <string name="action_settings">Settings</string>
+	<string name="gateway_waiting">Waiting for gateway...</string>
+	<string name="gateway_bulbs_off">Bulbs Off</string>
+	<string name="gateway_bulbs_on">Bulbs On</string>
+	<string name="edit_name">Select bulbs</string>
+
+</resources>
