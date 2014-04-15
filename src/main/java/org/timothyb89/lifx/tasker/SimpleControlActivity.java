@@ -1,25 +1,24 @@
 package org.timothyb89.lifx.tasker;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Handler;
-import android.util.Log;
+import android.os.IBinder;
 import android.view.Menu;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
 import org.androidannotations.annotations.Background;
 import org.androidannotations.annotations.Click;
 import org.androidannotations.annotations.EActivity;
 import org.androidannotations.annotations.UiThread;
 import org.androidannotations.annotations.ViewById;
-import org.timothyb89.R;
-import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.gateway.Gateway;
-import org.timothyb89.lifx.net.BroadcastListener;
-import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
+import org.timothyb89.lifx.tasker.LIFXService.LIFXBinder;
 
 @Slf4j
 @EActivity(R.layout.activity_main)
@@ -34,8 +33,7 @@ public class SimpleControlActivity extends Activity {
 	@ViewById(R.id.gateway_bulbs_on)
 	protected Button bulbsOnButton;
 	
-	private BroadcastListener listener;
-	private Gateway gateway;
+	private LIFXService lifx;
 	
 	/**
 	 * Called when the activity is first created.
@@ -49,14 +47,32 @@ public class SimpleControlActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
-		listener = new BroadcastListener(this);
-		listener.bus().register(this);
+		//listener = new BroadcastListener(this);
+		//listener.bus().register(this);
 		
-		try {
-			listener.startListen();
-		} catch (Exception ex) {
-			log.error("couldn't listen", ex);
-		}
+		//try {
+		//	listener.startListen();
+		//} catch (Exception ex) {
+		//	log.error("couldn't listen", ex);
+		//}
+		initService();
+	}
+
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		
+		unbindService(connection);
+	}
+	
+	@Background
+	protected void initService() {
+		startService(new Intent(this, LIFXService.class));
+		
+		bindService(
+				new Intent(this, LIFXService.class),
+				connection,
+				Context.BIND_AUTO_CREATE);
 	}
 	
 	@UiThread
@@ -67,66 +83,66 @@ public class SimpleControlActivity extends Activity {
 	@Click(R.id.gateway_bulbs_off)
 	@Background
 	protected void bulbsOffButtonClicked() {
-		if (gateway == null || !gateway.isConnected()) {
-			showToast("Error: not connected");
+		if (lifx == null) {
+			showToast("Error: service not connected");
 			return;
 		}
 		
-		try {
-			gateway.turnOff();
-		} catch (IOException ex) {
-			showToast("Error: " + ex.getMessage());
-			log.error("Error turning off bulbs", ex);
-		}
+		lifx.turnOff();
+		
+		//try {
+		//	gateway.turnOff();
+		//} catch (IOException ex) {
+		//	showToast("Error: " + ex.getMessage());
+		//	log.error("Error turning off bulbs", ex);
+		//}
 	}
 	
 	@Click(R.id.gateway_bulbs_on)
 	@Background
 	protected void bulbsOnButtonClicked() {
-		if (gateway == null || !gateway.isConnected()) {
-			showToast("Error: not connected");
+		if (lifx == null) {
+			showToast("Error: service not connected");
 			return;
 		}
 		
-		try {
-			gateway.turnOn();
-		} catch (IOException ex) {
-			showToast("Error: " + ex.getMessage());
-			log.error("Error turning on bulbs", ex);
-		}
+		lifx.turnOff();
+		
+		//try {
+		//	gateway.turnOn();
+		//} catch (IOException ex) {
+		//	showToast("Error: " + ex.getMessage());
+		//	log.error("Error turning on bulbs", ex);
+		//}
 	}
 	
 	@UiThread
 	protected void updateGateway(Gateway gateway)  {
-		this.gateway = gateway;
+		//this.gateway = gateway;
 		
 		gatewayField.setText(gateway.toString());
 		showToast("Found gateway " + gateway);
-	}
-	
-	@EventHandler
-	public void gatewayDiscovered(GatewayDiscoveredEvent ev) {
-		try {
-			listener.stopListen();
-		} catch (IOException ex) {
-			log.error("Couldn't stop listener", ex);
-		}
-		
-		try {
-			ev.getGateway().connect();
-
-			updateGateway(ev.getGateway());
-		} catch (IOException ex) {
-			showToast("Couldn't connect to gateway: " + ex.getMessage());
-			log.error("error connecting to gateway", ex);
-		}
 	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(org.timothyb89.R.menu.main, menu);
+		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
 
+	private ServiceConnection connection = new ServiceConnection() {
+
+		@Override
+		public void onServiceConnected(ComponentName name, IBinder service) {
+			lifx = ((LIFXBinder) service).getService();
+		}
+
+		@Override
+		public void onServiceDisconnected(ComponentName name) {
+			lifx = null;
+		}
+		
+	};
+	
 }
