@@ -8,30 +8,40 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.view.Menu;
+import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
-import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import org.androidannotations.annotations.Background;
 import org.androidannotations.annotations.Click;
 import org.androidannotations.annotations.EActivity;
 import org.androidannotations.annotations.UiThread;
 import org.androidannotations.annotations.ViewById;
-import org.timothyb89.lifx.gateway.Gateway;
+import org.apmem.tools.layouts.FlowLayout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.timothyb89.eventbus.EventHandler;
+import org.timothyb89.lifx.bulb.Bulb;
+import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.tasker.LIFXService.LIFXBinder;
 
-@Slf4j
 @EActivity(R.layout.activity_main)
 public class SimpleControlActivity extends Activity {
 	
-	@ViewById(R.id.gateway_field)
-	protected TextView gatewayField;
+	private static Logger log = LoggerFactory.getLogger(SimpleControlActivity.class);
 	
 	@ViewById(R.id.gateway_bulbs_off)
 	protected Button bulbsOffButton;
 	
 	@ViewById(R.id.gateway_bulbs_on)
 	protected Button bulbsOnButton;
+
+	@ViewById(R.id.bulb_list)
+	protected FlowLayout bulbContainer;
+	
+	private Map<Bulb, Button> bulbMap;
 	
 	private LIFXService lifx;
 	
@@ -47,14 +57,8 @@ public class SimpleControlActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		
-		//listener = new BroadcastListener(this);
-		//listener.bus().register(this);
+		bulbMap = new HashMap<>();
 		
-		//try {
-		//	listener.startListen();
-		//} catch (Exception ex) {
-		//	log.error("couldn't listen", ex);
-		//}
 		initService();
 	}
 
@@ -67,12 +71,73 @@ public class SimpleControlActivity extends Activity {
 	
 	@Background
 	protected void initService() {
+		log.info("Starting service");
+		
 		startService(new Intent(this, LIFXService.class));
 		
 		bindService(
 				new Intent(this, LIFXService.class),
 				connection,
 				Context.BIND_AUTO_CREATE);
+	}
+	
+	protected void serviceConnected() {
+		bulbsUpdated();
+		
+		log.info("LIFX: {}", lifx);
+		if (lifx != null) {
+			lifx.bus().register(this);
+		}
+	}
+	
+	@EventHandler
+	public void bulbsUpdatedHandler(BulbListUpdatedEvent event) {
+		bulbsUpdated();
+	}
+	
+	@UiThread
+	protected void bulbsUpdated() {
+		if (lifx == null) {
+			return; // wat?
+		}
+		
+		log.info("Bulbs updated.");
+		
+		bulbMap.clear();
+		bulbContainer.removeAllViews();
+		
+		for (Bulb bulb : lifx.getBulbs()) {
+			Button b = new Button(this);
+			b.setOnClickListener(new BulbClickListener(bulb));
+			b.setText(bulb.getLabel());
+			bulbMap.put(bulb, b);
+			
+			bulbContainer.addView(b);
+		}
+	}
+	
+	@Background
+	protected void toggle(Bulb bulb) {
+		// attempt to reconnect if needed
+		try {
+			if (!bulb.getGateway().isConnected()) {
+				bulb.getGateway().connect();
+				showToast("Reconnected!"); // TODO: remove me
+			}
+		} catch (IOException ex) {
+			log.error("Unable to connect to bulb " + bulb, ex);
+			showToast("Error: couldn't connect to bulb.");
+		}
+		
+		try {
+			if (bulb.getPowerState() == PowerState.OFF) {
+				bulb.turnOn();
+			} else {
+				bulb.turnOff();
+			}
+		} catch (IOException ex) {
+			log.error("Unable to toggle power state for " + bulb, ex);
+		}
 	}
 	
 	@UiThread
@@ -90,12 +155,7 @@ public class SimpleControlActivity extends Activity {
 		
 		lifx.turnOff();
 		
-		//try {
-		//	gateway.turnOff();
-		//} catch (IOException ex) {
-		//	showToast("Error: " + ex.getMessage());
-		//	log.error("Error turning off bulbs", ex);
-		//}
+		log.info("Attempted turn-off");
 	}
 	
 	@Click(R.id.gateway_bulbs_on)
@@ -106,27 +166,13 @@ public class SimpleControlActivity extends Activity {
 			return;
 		}
 		
-		lifx.turnOff();
+		lifx.turnOn();
 		
-		//try {
-		//	gateway.turnOn();
-		//} catch (IOException ex) {
-		//	showToast("Error: " + ex.getMessage());
-		//	log.error("Error turning on bulbs", ex);
-		//}
-	}
-	
-	@UiThread
-	protected void updateGateway(Gateway gateway)  {
-		//this.gateway = gateway;
-		
-		gatewayField.setText(gateway.toString());
-		showToast("Found gateway " + gateway);
+		log.info("Attempted turn-on.");
 	}
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
@@ -136,6 +182,8 @@ public class SimpleControlActivity extends Activity {
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
 			lifx = ((LIFXBinder) service).getService();
+			
+			serviceConnected();
 		}
 
 		@Override
@@ -144,5 +192,20 @@ public class SimpleControlActivity extends Activity {
 		}
 		
 	};
+	
+	private class BulbClickListener implements View.OnClickListener {
+
+		private Bulb bulb;
+
+		public BulbClickListener(Bulb bulb) {
+			this.bulb = bulb;
+		}
+		
+		@Override
+		public void onClick(View v) {
+			toggle(bulb);
+		}
+		
+	}
 	
 }

@@ -13,7 +13,6 @@ import org.timothyb89.lifx.gateway.Gateway;
  *
  * @author tim
  */
-@Slf4j
 @EActivity(R.layout.activity_bulb_list)
 public class SimpleBulbList extends Activity {
 	

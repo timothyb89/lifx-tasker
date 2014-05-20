@@ -1,0 +1,75 @@
+buildscript {
+    repositories {
+        mavenCentral()
+		mavenLocal()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.9.0'
+		
+		classpath 'com.neenbedankt.gradle.plugins:android-apt:1.1'
+    }
+}
+
+apply plugin: 'android'
+apply plugin: 'android-apt'
+
+repositories {
+	mavenCentral()
+	mavenLocal()
+}
+
+dependencies {
+	compile 'org.timothyb89:lifx-java:1.0-SNAPSHOT'
+	
+	compile 'org.slf4j:slf4j-api:1.7.2'
+	compile 'org.slf4j:slf4j-android:1.7.6'
+	
+	apt 'org.androidannotations:androidannotations:3.0.1'
+    compile 'org.androidannotations:androidannotations-api:3.0.1'
+	
+	provided 'org.projectlombok:lombok:1.12.6'
+}
+
+apt {
+	arguments {
+        androidManifestFile variant.processResources.manifestFile 
+        resourcePackageName 'org.timothyb89.lifx.tasker'
+
+        // If you're using Android NBS flavors you should use the following line instead of hard-coded packageName
+        // resourcePackageName android.defaultConfig.packageName
+
+        // You can set optional annotation processing options here, like these commented options:
+        // logLevel 'INFO'
+        // logFile '/var/log/aa.log'
+    }
+}
+
+android {
+    compileSdkVersion 19
+    buildToolsVersion "19.0.0"
+    defaultConfig {
+        minSdkVersion 7
+        targetSdkVersion 19
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_7
+        targetCompatibility JavaVersion.VERSION_1_7
+    }
+	
+	lintOptions {
+		abortOnError false
+	}
+	
+	sourceSets {
+		main {
+			manifest.srcFile 'src/main/AndroidManifest.xml'
+			
+			java     .srcDirs = ['src/main/java', 'GENERATED_FOLDER']
+			resources.srcDirs = ['src/main/resources']
+			res      .srcDirs = ['src/main/res']
+			assets   .srcDirs = ['src/main/assets']
+		}
+	}
+}

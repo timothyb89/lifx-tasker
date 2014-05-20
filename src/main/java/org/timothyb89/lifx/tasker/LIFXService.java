@@ -8,6 +8,11 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.timothyb89.eventbus.EventBus;
+import org.timothyb89.eventbus.EventBusClient;
+import org.timothyb89.eventbus.EventBusProvider;
 import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.bulb.Bulb;
 import org.timothyb89.lifx.gateway.Gateway;
@@ -20,9 +25,10 @@ import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
  *
  * @author tim
  */
-@Slf4j
-public class LIFXService extends Service {
+public class LIFXService extends Service implements EventBusProvider {
 
+	private static Logger log = LoggerFactory.getLogger(LIFXService.class);
+	
 	public static final int  DISCOVERY_ATTEMPTS   = 5;
 	public static final long DISCOVERY_WAIT       = 100; // milliseconds
 	public static final long DISCOVERY_WAIT_SMALL = 250;
@@ -31,11 +37,26 @@ public class LIFXService extends Service {
 	
 	private BroadcastListener listener;
 	
+	private EventBus bus;
+	
+	private List<Bulb> bulbsDiscovered;
+	
 	public LIFXService() {
 		binder = new LIFXBinder();
 		
+		bus = new EventBus() {{
+			add(BulbListUpdatedEvent.class);
+		}};
+		
+		bulbsDiscovered = new LinkedList<>();
+		
 		listener = new BroadcastListener(this);
 		listener.bus().register(this);
+	}
+	
+	@Override
+	public EventBusClient bus() {
+		return bus.getClient();
 	}
 	
 	@Override
@@ -75,6 +96,7 @@ public class LIFXService extends Service {
 
 		// connect to the gateway and try to discover bulbs
 		try {
+			event.getGateway().bus().register(this);
 			event.getGateway().connect();
 		} catch (IOException ex) {
 			log.error("Unable to connect to gateway", ex);
@@ -88,6 +110,13 @@ public class LIFXService extends Service {
 		} catch (IOException ex) {
 			// ignore
 		}
+	}
+	
+	@EventHandler
+	public void bulbDiscovered(GatewayBulbDiscoveredEvent event) {
+		log.info("Found bulb: {}", event.getBulb());
+		
+		bus.push(new BulbListUpdatedEvent());
 	}
 	
 	/**
@@ -214,7 +243,7 @@ public class LIFXService extends Service {
 	public void turnOn() {
 		for (Gateway g : waitForGateways()) {
 			try {
-				g.turnOff();
+				g.turnOn();
 			} catch (IOException ex) {
 				log.error("Unable to issue turnOn() command to gateway", ex);
 			}

@@ -1,1 +1,5 @@
 target/
+/.nb-gradle/profiles/private/
+/local.properties
+/build/
+/.nb-gradle/private/

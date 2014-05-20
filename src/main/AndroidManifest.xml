@@ -36,9 +36,9 @@
 				<action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING"/>
 			</intent-filter>
 		</receiver>
+		
+		<service android:name=".LIFXService"/>
 	</application>
-	
-	<service android:name=".LIFXService"/>
 	
 	<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
 	<uses-permission android:name="android.permission.INTERNET"/>
