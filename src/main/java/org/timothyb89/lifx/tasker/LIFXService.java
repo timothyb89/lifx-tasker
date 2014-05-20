@@ -15,6 +15,7 @@ import org.timothyb89.eventbus.EventBusClient;
 import org.timothyb89.eventbus.EventBusProvider;
 import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.bulb.Bulb;
+import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.gateway.Gateway;
 import org.timothyb89.lifx.gateway.GatewayBulbDiscoveredEvent;
 import org.timothyb89.lifx.gateway.GatewayManager;
@@ -268,6 +269,22 @@ public class LIFXService extends Service implements EventBusProvider {
 				g.turnOff();
 			} catch (IOException ex) {
 				log.error("Unable to issue turnOff() command to gateway", ex);
+			}
+		}
+	}
+	
+	public void toggle(String bulbName) {
+		Bulb bulb = findBulb(bulbName);
+		
+		if (bulb != null) {
+			try {
+				if (bulb.getPowerState() == PowerState.ON) {
+					bulb.turnOff();
+				} else {
+					bulb.turnOn();
+				}
+			} catch (IOException ex) {
+				log.error("Error calling toggle() on " + bulb, ex);
 			}
 		}
 	}

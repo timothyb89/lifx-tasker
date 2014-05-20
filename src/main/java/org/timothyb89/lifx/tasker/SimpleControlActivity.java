@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.bulb.Bulb;
+import org.timothyb89.lifx.bulb.BulbPowerStateUpdatedEvent;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.tasker.LIFXService.LIFXBinder;
 
@@ -108,7 +109,7 @@ public class SimpleControlActivity extends Activity {
 		
 		for (Bulb bulb : lifx.getBulbs()) {
 			Button b = new Button(this);
-			b.setOnClickListener(new BulbClickListener(bulb));
+			b.setOnClickListener(new BulbButtonController(bulb, b));
 			b.setText(bulb.getLabel());
 			bulbMap.put(bulb, b);
 			
@@ -176,6 +177,11 @@ public class SimpleControlActivity extends Activity {
 		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
 	}
+	
+	@UiThread
+	protected void updateButtonIcon(Button b, int resId) {
+		b.setCompoundDrawablesWithIntrinsicBounds(0, resId, 0, 0);
+	}
 
 	private ServiceConnection connection = new ServiceConnection() {
 
@@ -193,17 +199,34 @@ public class SimpleControlActivity extends Activity {
 		
 	};
 	
-	private class BulbClickListener implements View.OnClickListener {
+	protected class BulbButtonController implements View.OnClickListener {
 
 		private Bulb bulb;
+		private Button button;
 
-		public BulbClickListener(Bulb bulb) {
+		public BulbButtonController(Bulb bulb, Button button) {
 			this.bulb = bulb;
+			this.button = button;
+			
+			bulb.bus().register(this);
+			
+			// fake an event to update the icon initially
+			handleStateUpdated(new BulbPowerStateUpdatedEvent(
+					bulb, bulb.getPowerState()));
 		}
 		
 		@Override
 		public void onClick(View v) {
 			toggle(bulb);
+		}
+		
+		@EventHandler
+		public void handleStateUpdated(BulbPowerStateUpdatedEvent event) {
+			if (event.getPowerState() == PowerState.OFF) {
+				updateButtonIcon(button, R.drawable.bulb_off);
+			} else {
+				updateButtonIcon(button, R.drawable.bulb_on);
+			}
 		}
 		
 	}

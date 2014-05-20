@@ -6,6 +6,22 @@
 	<string name="gateway_waiting">Waiting for gateway...</string>
 	<string name="gateway_bulbs_off">Bulbs Off</string>
 	<string name="gateway_bulbs_on">Bulbs On</string>
-	<string name="edit_name">Select bulbs</string>
+	<string name="edit_name">LIFX Control</string>
+	
+	<string name="accept">Accept</string>
+	<string name="cancel">Cancel</string>
+	
+	<string name="select_all">Select All</string>
+	<string name="select_none">Select None</string>
 
+	<string name="edit_bulbs_label">Bulbs selected:</string>
+	<string name="edit_bulbs_count_none">N/A</string>
+	<string name="edit_bulbs_button">Edit</string>
+	<string name="edit_action_label">Action:</string>
+	<string name="edit_action_prompt">Select action...</string>
+	<string-array name="edit_action_choices">
+		<item>Power On</item>
+		<item>Power Off</item>
+		<item>Power Toggle</item>
+	</string-array>
 </resources>

@@ -3,14 +3,26 @@
               android:layout_height="fill_parent"
               android:orientation="vertical">
 	
+	<LinearLayout android:layout_width="fill_parent"
+	              android:layout_height="wrap_content"
+	              android:orientation="horizontal">
+		<Button android:id="@+id/select_all"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/select_all"/>
+
+		<Button android:id="@+id/select_none"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/select_none"/>
+	</LinearLayout>
+	
 	<ScrollView android:layout_width="fill_parent"
-				android:layout_height="wrap_content">
-		<LinearLayout android:id="@+id/list_container"
-					  android:orientation="vertical"
-					  android:layout_width="wrap_content"
-					  android:layout_height="wrap_content">
-			
-		</LinearLayout>
+				android:layout_height="fill_parent">
+		<org.apmem.tools.layouts.FlowLayout
+			android:id="@+id/select_bulb_list"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"/>
 	</ScrollView>
 	
 </LinearLayout>

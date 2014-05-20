@@ -1,0 +1,17 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+
+	<item
+		android:id="@+id/select_accept"
+		android:icon="@drawable/ic_action_accept"
+		android:orderInCategory="100"
+		android:showAsAction="ifRoom"
+		android:title="@string/accept"/>
+	
+	<item
+		android:id="@+id/select_cancel"
+		android:icon="@drawable/ic_action_cancel"
+		android:orderInCategory="100"
+		android:showAsAction="ifRoom"
+		android:title="@string/cancel"/>
+
+</menu>

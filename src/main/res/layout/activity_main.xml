@@ -6,20 +6,20 @@
 	<org.apmem.tools.layouts.FlowLayout
 		android:id="@+id/bulb_list"
 		android:layout_width="fill_parent"
-		android:layout_height="wrap_content">
-		
-	</org.apmem.tools.layouts.FlowLayout>
+		android:layout_height="wrap_content"/>
 
-	<Button
-		android:id="@+id/gateway_bulbs_off"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:text="@string/gateway_bulbs_off"/>
+	<LinearLayout android:layout_width="fill_parent"
+	              android:layout_height="wrap_content"
+	              android:orientation="horizontal">
+		<Button android:id="@+id/gateway_bulbs_off"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/gateway_bulbs_off"/>
 
-	<Button
-		android:id="@+id/gateway_bulbs_on"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:text="@string/gateway_bulbs_on"/>
+		<Button android:id="@+id/gateway_bulbs_on"
+		        android:layout_width="wrap_content"
+		        android:layout_height="wrap_content"
+		        android:text="@string/gateway_bulbs_on"/>
+	</LinearLayout>
 
 </LinearLayout>
