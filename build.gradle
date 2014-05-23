@@ -49,7 +49,7 @@ android {
     compileSdkVersion 19
     buildToolsVersion "19.0.0"
     defaultConfig {
-        minSdkVersion 7
+        minSdkVersion 19
         targetSdkVersion 19
     }
 
@@ -72,4 +72,47 @@ android {
 			assets   .srcDirs = ['src/main/assets']
 		}
 	}
+	
+	signingConfigs {
+		release {
+			// dummy passwords, will be prompted during build
+			storeFile     file("empty.keystore")
+			storePassword "xxx"
+			keyAlias      "xxx"
+			keyPassword   "xxx"
+		}
+	}
+	
+	buildTypes {
+		debug {
+			debuggable true
+			zipAlign false
+		}
+		
+		release {
+			signingConfig signingConfigs.release
+			debuggable false
+			zipAlign true
+		}
+	}
+}
+
+task askForPasswords << {
+    // Must create String because System.readPassword() returns char[]
+    // (and assigning that below fails silently)
+	def storeFile = new String(System.console().readLine("Keystore path: "))
+	def keyAlias = new String(System.console().readLine("Key alias: "))
+	def storePw = new String(System.console().readPassword("Keystore password: "))
+    def keyPw  = new String(System.console().readPassword("Key password: "))
+	
+	android.signingConfigs.release.storeFile = file(storeFile)
+	android.signingConfigs.release.keyAlias = keyAlias
+    android.signingConfigs.release.storePassword = storePw
+    android.signingConfigs.release.keyPassword = keyPw
+}
+
+tasks.whenTaskAdded { theTask -> 
+    if (theTask.name.equals("packageRelease")) {
+        theTask.dependsOn "askForPasswords"
+    }
 }
