@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="org.timothyb89.lifx.tasker"
-          android:versionCode="1"
-          android:versionName="1.0-SNAPSHOT" >
+          android:versionCode="2"
+          android:versionName="1.0.1" >
 
 	<uses-sdk android:minSdkVersion="19"
 	          android:targetSdkVersion="19" />
@@ -20,9 +20,13 @@
 			</intent-filter>
 		</activity>
 		
-		<!-- bulb selector -->
-		<activity android:name=".SimpleBulbList_"
-		          android:label="@string/edit_name"
+		<!-- editors -->
+		<activity android:name=".editor.BulbListEditor_"
+		          android:label="@string/edit_bulbs_name"
+		          android:icon="@drawable/ic_launcher">
+		</activity>
+		<activity android:name=".editor.ColorEditor_"
+		          android:label="@string/edit_color_name"
 		          android:icon="@drawable/ic_launcher">
 		</activity>
 		

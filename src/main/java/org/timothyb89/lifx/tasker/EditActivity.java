@@ -7,45 +7,99 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
+import android.widget.GridLayout;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.androidannotations.annotations.Click;
+import org.androidannotations.annotations.AfterViews;
 import org.androidannotations.annotations.EActivity;
+import org.androidannotations.annotations.ItemSelect;
 import org.androidannotations.annotations.UiThread;
 import org.androidannotations.annotations.ViewById;
-import org.timothyb89.lifx.bulb.Bulb;
-import static org.timothyb89.lifx.tasker.SimpleBulbList.KEY_RESULT_BULBS;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.timothyb89.lifx.tasker.editor.Action;
+import org.timothyb89.lifx.tasker.editor.Parameter;
 
 /**
  *
  * @author tim
  */
-@EActivity(R.layout.activity_task_edit)
+@EActivity(R.layout.activity_edit)
 public class EditActivity extends Activity {
 	
-	public static final int REQUEST_BULBS_SELECT = 1000;
+	private static Logger log = LoggerFactory.getLogger(EditActivity.class);
 	
-	@ViewById(R.id.edit_bulbs_select)
-	protected Button bulbsEditButton;
+	public static final int REQUEST_SHOW_EDITOR = 1000;
 	
-	@ViewById(R.id.edit_bulbs_count)
-	protected TextView bulbsCountLabel;
+	public static final String KEY_PARAMS = "params";
+	public static final String KEY_PARAM_NAME = "param-name";
 	
 	@ViewById(R.id.edit_action_spinner)
 	protected Spinner actionSpinner;
 	
-	private String[] bulbs;
+	@ViewById(R.id.edit_param_container)
+	protected GridLayout paramContainer;
+	
+	private Bundle parameters;
+	
+	private Action currentAction;
+	
+	private Map<Parameter, TextView> labelMap;
 	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		labelMap = new HashMap<>();
+	}
+	
+	@AfterViews
+	protected void init() {
+		// find defined actions
+		List<String> actions = new ArrayList<>();
+		for (Action a : Action.values()) {
+			actions.add(getString(a.getResourceId()));
+		}
+		
+		actionSpinner.setAdapter(new ArrayAdapter(
+				this,
+				android.R.layout.simple_list_item_1,
+				actions));
+		
+		
+		String key = com.twofortyfouram.locale.Intent.EXTRA_BUNDLE;
+		if (getIntent().hasExtra(key)) {
+			parameters = getIntent().getBundleExtra(key);
+			
+			log.info("Got initial parameters...");
+			for (String k : parameters.keySet()) {
+				log.info("{} = {}", k, parameters.get(k));
+			}
+
+		} else {
+			parameters = new Bundle();
+		}
+		
+		if (parameters.containsKey(FireReceiver.KEY_ACTION)) {
+			Action action = Action.getAction(
+					parameters.getString(FireReceiver.KEY_ACTION));
+			actionSpinner.setSelection(action.ordinal());
+		} else {
+			// fake an action selected for the first item
+			actionSpinner.setSelection(0);
+		}
 	}
 	
 	@Override
@@ -58,59 +112,119 @@ public class EditActivity extends Activity {
 		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 	}
 	
-	@Click(R.id.edit_bulbs_select)
-	protected void bulbSelectButtonClicked() {
-		Intent i = new Intent(this, SimpleBulbList_.class);
+	private void showEditor(Parameter param) {
+		Intent intent = new Intent(this, param.getEditorClass());
+		intent.putExtra(KEY_PARAMS, parameters);
+		intent.putExtra(KEY_PARAM_NAME, param.name());
 		
-		if (bulbs != null) {
-			i.putExtra(SimpleBulbList.KEY_INTENT_BULBS, bulbs);
-		}
-		
-		startActivityForResult(i, REQUEST_BULBS_SELECT);
+		startActivityForResult(intent, REQUEST_SHOW_EDITOR);
 	}
-
-	private void bulbSelectReturned(int resultCode, Intent data) {
-		if (resultCode != RESULT_OK) {
+	
+	@ItemSelect(R.id.edit_action_spinner)
+	protected void actionSelected(boolean selected, String item) {
+		log.info("actionSelected({}, {})", selected, item);
+		
+		if (!selected) {
+			parameters = null;
 			return;
 		}
 		
-		bulbs = data.getStringArrayExtra(SimpleBulbList.KEY_RESULT_BULBS);
+		Action a = Action.getAction(this, item);
+		if (a == null) {
+			log.error("Unknown action: " + item);
+			showToast("Unknown action: " + item);
+			return;
+		}
 		
-		bulbsCountLabel.setText(String.format("%d", bulbs.length));
+		currentAction = a;
+		
+		parameters.putString(FireReceiver.KEY_ACTION, a.getId());
+		
+		paramContainer.removeAllViews();
+		for (final Parameter p : a.getParameters()) {
+			log.info("Creating editor for " + p.name());
+			
+			TextView label = new TextView(this);
+			label.setText(p.getResourceId());
+			paramContainer.addView(label);
+			
+			Button button = new Button(this);
+			button.setOnClickListener(new OnClickListener() {
+
+				@Override
+				public void onClick(View v) {
+					showEditor(p);
+				}
+				
+			});
+			button.setText(R.string.edit_button);
+			paramContainer.addView(button);
+			
+			TextView statusLabel = new TextView(this);
+			if (p.validate(this, parameters)) {
+				statusLabel.setText(p.describe(this, parameters));
+			}
+			
+			paramContainer.addView(statusLabel);
+			labelMap.put(p, statusLabel);
+		}
+	}
+	
+	private void editorReturned(int code, Intent data) {
+		// if the editor returned successfully, overwrite our params with its
+		if (code != RESULT_OK) {
+			return;
+		}
+		
+		parameters = data.getBundleExtra(KEY_PARAMS);
+		
+		Parameter p = Parameter.valueOf(data.getStringExtra(KEY_PARAM_NAME));
+		if (p.validate(this, parameters)) {
+			labelMap.get(p).setText(p.describe(this, parameters));
+		} else {
+			showToast(getString(R.string.edit_invalid_accept));
+		}
 	}
 	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		if (requestCode == REQUEST_BULBS_SELECT) {
-			bulbSelectReturned(resultCode, data);
+		if (requestCode == REQUEST_SHOW_EDITOR) {
+			editorReturned(resultCode, data);
 		}
 	}
 	
 	private void accept() {
-		if (bulbs == null || bulbs.length == 0) {
-			showToast("No bulbs selected!");
-			return;
-		}
-		
-		String action = (String) actionSpinner.getSelectedItem();
-		if (action == null) {
+		if (currentAction == null) {
 			showToast("No action selected!");
 			return;
 		}
 		
-		Intent result = new Intent();
+		if (parameters == null) {
+			showToast("Invalid parameters selected!");
+			return;
+		}
 		
-		Bundle bundle = new Bundle();
-		bundle.putString(FireReceiver.KEY_ACTION, action);
-		bundle.putStringArray(FireReceiver.KEY_BULBS, bulbs);
+		// TODO: validate action / params
+		
+		Intent result = new Intent();
 		
 		result.putExtra(
 				com.twofortyfouram.locale.Intent.EXTRA_BUNDLE,
-				bundle);
+				parameters);
+		
+		List<String> descriptions = new LinkedList<>();
+		descriptions.add(getString(currentAction.getResourceId()));
+		for (Parameter p : labelMap.keySet()) {
+			descriptions.add(p.describe(this, parameters));
+		}
 		
 		result.putExtra(
 				com.twofortyfouram.locale.Intent.EXTRA_STRING_BLURB,
-				String.format("Action: %s - %d bulbs", action, bulbs.length));
+				StringUtils.join(descriptions, " - "));
+		
+		for (String key : parameters.keySet()) {
+			log.info("{} = {}", key, parameters.get(key));
+		}
 		
 		setResult(RESULT_OK, result);
 		finish();
@@ -121,9 +235,26 @@ public class EditActivity extends Activity {
 		finish();
 	}
 	
+	private boolean validate() {
+		if (currentAction == null || parameters == null) {
+			return false;
+		}
+		
+		for (Parameter p : labelMap.keySet()) {
+			if (!p.validate(this, parameters)) {
+				log.info("Validation of {} failed", p.name());
+				return false;
+			} else {
+				log.info("Validation of {} passed", p.name());
+			}
+		}
+		
+		return true;
+	}
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		getMenuInflater().inflate(R.menu.select, menu);
+		getMenuInflater().inflate(R.menu.edit, menu);
 		
 		return super.onCreateOptionsMenu(menu);
 	}
@@ -131,15 +262,30 @@ public class EditActivity extends Activity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
-			case R.id.select_accept:
-				accept();
+			case R.id.edit_accept:
+				if (validate()) {
+					accept();
+				} else {
+					showToast(getString(R.string.edit_invalid_accept));
+				}
 				return true;
-			case R.id.select_cancel:
+			case R.id.edit_cancel:
 				cancel();
 				return true;
 			default:
 				return super.onOptionsItemSelected(item);
 		}
+	}
+
+	@Override
+	public void onBackPressed() {
+		if (!validate()) {
+			showToast(getString(R.string.edit_invalid_back));
+			cancel();
+			return;
+		}
+		
+		accept();
 	}
 	
 }

@@ -2,12 +2,15 @@ package org.timothyb89.lifx.tasker;
 
 import android.app.Service;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Binder;
 import android.os.IBinder;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.timothyb89.eventbus.EventBus;
@@ -15,6 +18,7 @@ import org.timothyb89.eventbus.EventBusClient;
 import org.timothyb89.eventbus.EventBusProvider;
 import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.bulb.Bulb;
+import org.timothyb89.lifx.bulb.LIFXColor;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.gateway.Gateway;
 import org.timothyb89.lifx.gateway.GatewayBulbDiscoveredEvent;
@@ -33,6 +37,8 @@ public class LIFXService extends Service implements EventBusProvider {
 	public static final int  DISCOVERY_ATTEMPTS   = 5;
 	public static final long DISCOVERY_WAIT       = 100; // milliseconds
 	public static final long DISCOVERY_WAIT_SMALL = 250;
+	
+	public static final long DEFAULT_PULSE_DELAY = 1000;
 	
 	private LIFXBinder binder;
 	
@@ -241,6 +247,19 @@ public class LIFXService extends Service implements EventBusProvider {
 		return bulb;
 	}
 	
+	private List<Bulb> findBulbs(String[] bulbs) {
+		List<Bulb> ret = new ArrayList<>();
+		
+		for (String bulbName : bulbs) {
+			Bulb b = findBulb(bulbName);
+			if (b != null) {
+				ret.add(b);
+			}
+		}
+		
+		return ret;
+	}
+	
 	public void turnOn() {
 		for (Gateway g : waitForGateways()) {
 			try {
@@ -297,6 +316,54 @@ public class LIFXService extends Service implements EventBusProvider {
 				bulb.turnOff();
 			} catch (IOException ex) {
 				log.error("Error calling turnOff()", ex);
+			}
+		}
+	}
+	
+	public void setColor(String bulbName, int color) {
+		Bulb bulb = findBulb(bulbName);
+		
+		if (bulb != null) {
+			try {
+				int red = Color.red(color);
+				int green = Color.green(color);
+				int blue = Color.blue(color);
+				
+				bulb.setColor(LIFXColor.fromRGB(red, green, blue));
+			} catch (IOException ex) {
+				log.error("Error calling setColor()", ex);
+			}
+		}
+	}
+	
+	public void pulse(String[] bulbNames, int color) {
+		List<Bulb> bulbs = findBulbs(bulbNames);
+		
+		int red = Color.red(color);
+		int green = Color.green(color);
+		int blue = Color.blue(color);
+		LIFXColor c = LIFXColor.fromRGB(red, green, blue);
+		
+		Map<Bulb, LIFXColor> initialColors = new HashMap<>();
+		for (Bulb b : bulbs) {
+			initialColors.put(b, b.getColor());
+			
+			try {
+				b.setColor(c);
+			} catch (IOException ex) {
+				log.error("Error in pulse()", ex);
+			}
+		}
+		
+		try {
+			Thread.sleep(DEFAULT_PULSE_DELAY);
+		} catch (InterruptedException ex) {}
+		
+		for (Bulb b : bulbs) {
+			try {
+				b.setColor(initialColors.get(b));
+			} catch (IOException ex) {
+				log.error("Error in pulse()", ex);
 			}
 		}
 	}

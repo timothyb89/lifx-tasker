@@ -14,14 +14,24 @@
 	<string name="select_all">Select All</string>
 	<string name="select_none">Select None</string>
 
+	<string name="edit_invalid_back">Parameters were invalid, cancelling...</string>
+	<string name="edit_invalid_accept">Parameters were invalid!</string>
+	<string name="edit_param_bulbs">Bulbs:</string>
+	<string name="edit_param_bulbs_desc">%d bulbs</string>
+	<string name="edit_param_color">Color:</string>
+
+	<string name="edit_bulbs_name">Bulb Picker</string>
 	<string name="edit_bulbs_label">Bulbs selected:</string>
 	<string name="edit_bulbs_count_none">N/A</string>
-	<string name="edit_bulbs_button">Edit</string>
+	<string name="edit_button">Edit</string>
+	
+	<string name="edit_color_name">Color Picker</string>
+	
 	<string name="edit_action_label">Action:</string>
-	<string name="edit_action_prompt">Select action...</string>
-	<string-array name="edit_action_choices">
-		<item>Power On</item>
-		<item>Power Off</item>
-		<item>Power Toggle</item>
-	</string-array>
+	
+	<string name="action_power_on">Power On</string>
+	<string name="action_power_off">Power Off</string>
+	<string name="action_power_toggle">Power Toggle</string>
+	<string name="action_color_set">Set Color</string>
+	<string name="action_color_pulse">Pulse Color</string>
 </resources>

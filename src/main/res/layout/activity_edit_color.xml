@@ -1,0 +1,19 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"
+              android:orientation="vertical">
+	
+	<com.larswerkman.holocolorpicker.ColorPicker
+        android:id="@+id/edit_color_picker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"/>
+ 
+    <com.larswerkman.holocolorpicker.SVBar
+        android:id="@+id/edit_color_svbar"
+        android:layout_width="322dp"
+        android:layout_height="112dp"
+        android:layout_gravity="center"
+        android:layout_margin="8dip"/>
+
+</LinearLayout>
