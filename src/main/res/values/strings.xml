@@ -34,4 +34,6 @@
 	<string name="action_power_toggle">Power Toggle</string>
 	<string name="action_color_set">Set Color</string>
 	<string name="action_color_pulse">Pulse Color</string>
+	
+	<string name="service_bind_failed">LIFX Tasker: Couldn\'t scan for bulbs, close any other LIFX apps!</string>
 </resources>

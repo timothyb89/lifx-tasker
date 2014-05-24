@@ -39,9 +39,9 @@ public class ReceiverService extends IntentService {
 	protected void onHandleIntent(Intent intent) {
 		bundle = intent.getBundleExtra(FireReceiver.KEY_BUNDLE);
 		
-		startService(new Intent(this, LIFXService.class));
+		startService(new Intent(this, LIFXService_.class));
 		bindService(
-				new Intent(this, LIFXService.class),
+				new Intent(this, LIFXService_.class),
 				connection,
 				Context.BIND_AUTO_CREATE);
 	}

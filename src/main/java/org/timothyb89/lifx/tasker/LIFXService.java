@@ -5,12 +5,16 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Binder;
 import android.os.IBinder;
+import android.widget.Toast;
 import java.io.IOException;
+import java.net.BindException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.androidannotations.annotations.EService;
+import org.androidannotations.annotations.UiThread;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.timothyb89.eventbus.EventBus;
@@ -30,6 +34,7 @@ import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
  *
  * @author tim
  */
+@EService
 public class LIFXService extends Service implements EventBusProvider {
 
 	private static Logger log = LoggerFactory.getLogger(LIFXService.class);
@@ -46,16 +51,12 @@ public class LIFXService extends Service implements EventBusProvider {
 	
 	private EventBus bus;
 	
-	private List<Bulb> bulbsDiscovered;
-	
 	public LIFXService() {
 		binder = new LIFXBinder();
 		
 		bus = new EventBus() {{
 			add(BulbListUpdatedEvent.class);
 		}};
-		
-		bulbsDiscovered = new LinkedList<>();
 		
 		listener = new BroadcastListener(this);
 		listener.bus().register(this);
@@ -74,6 +75,9 @@ public class LIFXService extends Service implements EventBusProvider {
 		
 		try {
 			listener.startListen();
+		} catch (BindException ex) {
+			log.error("Unable to bind to LIFX port.", ex);
+			showToast(getString(R.string.service_bind_failed));
 		} catch (IOException ex) {
 			log.error("Unable to bind to lifx udp port", ex);
 		}
@@ -94,6 +98,11 @@ public class LIFXService extends Service implements EventBusProvider {
 	@Override
 	public IBinder onBind(Intent intent) {
 		return binder;
+	}
+	
+	@UiThread
+	protected void showToast(String message) {
+		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 	}
 	
 	@EventHandler
@@ -167,6 +176,9 @@ public class LIFXService extends Service implements EventBusProvider {
 			Thread.sleep(DISCOVERY_WAIT_SMALL);
 
 			listener.stopListen();
+		} catch (BindException ex) {
+			log.error("Unable to bind to LIFX port.", ex);
+			showToast(getString(R.string.service_bind_failed));
 		} catch (IOException ex) {
 			log.error("Unable to listen for gateways", ex);
 		} catch (InterruptedException ex) {
@@ -196,6 +208,9 @@ public class LIFXService extends Service implements EventBusProvider {
 		if (!listener.isListening()) {
 			try {
 				listener.startListen();
+			} catch (BindException ex) {
+				log.error("Unable to bind to LIFX port.", ex);
+				showToast(getString(R.string.service_bind_failed));
 			} catch (IOException ex) {
 				log.error("Unable to start listening", ex);
 			}

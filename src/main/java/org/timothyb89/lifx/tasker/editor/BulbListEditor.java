@@ -29,6 +29,7 @@ import org.timothyb89.lifx.bulb.Bulb;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.tasker.EditActivity;
 import org.timothyb89.lifx.tasker.LIFXService;
+import org.timothyb89.lifx.tasker.LIFXService_;
 import org.timothyb89.lifx.tasker.R;
 import static org.timothyb89.lifx.tasker.editor.ColorEditor.KEY_COLOR;
 
@@ -90,10 +91,10 @@ public class BulbListEditor extends Activity {
 	protected void initService() {
 		log.info("Starting service");
 		
-		startService(new Intent(this, LIFXService.class));
+		startService(new Intent(this, LIFXService_.class));
 		
 		bindService(
-				new Intent(this, LIFXService.class),
+				new Intent(this, LIFXService_.class),
 				connection,
 				Context.BIND_AUTO_CREATE);
 	}

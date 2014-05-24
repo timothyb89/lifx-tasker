@@ -46,7 +46,7 @@
 			</intent-filter>
 		</receiver>
 		
-		<service android:name=".LIFXService"/>
+		<service android:name=".LIFXService_"/>
 		<service android:name=".ReceiverService_"/>
 	</application>
 	
