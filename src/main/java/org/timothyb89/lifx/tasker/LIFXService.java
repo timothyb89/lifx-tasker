@@ -9,12 +9,15 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.net.BindException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.androidannotations.annotations.EService;
 import org.androidannotations.annotations.UiThread;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.timothyb89.eventbus.EventBus;
@@ -51,6 +54,9 @@ public class LIFXService extends Service implements EventBusProvider {
 	
 	private EventBus bus;
 	
+	private final List<Gateway> gateways;
+	private final List<Bulb> bulbs;
+	
 	public LIFXService() {
 		binder = new LIFXBinder();
 		
@@ -60,6 +66,9 @@ public class LIFXService extends Service implements EventBusProvider {
 		
 		listener = new BroadcastListener(this);
 		listener.bus().register(this);
+		
+		gateways = Collections.synchronizedList(new LinkedList<Gateway>());
+		bulbs = Collections.synchronizedList(new LinkedList<Bulb>());
 	}
 	
 	@Override
@@ -110,6 +119,10 @@ public class LIFXService extends Service implements EventBusProvider {
 		// stop listening after the first gateway for now
 		log.info("Found gateway: {}", event.getGateway());
 
+		synchronized (gateways) {
+			gateways.add(event.getGateway());
+		}
+		
 		// connect to the gateway and try to discover bulbs
 		try {
 			event.getGateway().bus().register(this);
@@ -131,6 +144,9 @@ public class LIFXService extends Service implements EventBusProvider {
 	@EventHandler
 	public void bulbDiscovered(GatewayBulbDiscoveredEvent event) {
 		log.info("Found bulb: {}", event.getBulb());
+		log.info("Gateway is now: {}", event.getGateway());
+		
+		bulbs.add(event.getBulb());
 		
 		bus.push(new BulbListUpdatedEvent());
 	}
@@ -143,15 +159,17 @@ public class LIFXService extends Service implements EventBusProvider {
 	private List<Gateway> getAvailableGateways() {
 		List<Gateway> ret = new LinkedList<>();
 		
-		for (Gateway g : GatewayManager.getInstance().getGateways()) {
-			if (g.isConnected()) {
-				ret.add(g);
-			} else {
-				try {
-					g.connect();
+		synchronized (gateways) {
+			for (Gateway g : gateways) {
+				if (g.isConnected()) {
 					ret.add(g);
-				} catch (IOException ex) {
-					log.error("Unable to connect to gateway", ex);
+				} else {
+					try {
+						g.connect();
+						ret.add(g);
+					} catch (IOException ex) {
+						log.error("Unable to connect to gateway", ex);
+					}
 				}
 			}
 		}
@@ -189,15 +207,46 @@ public class LIFXService extends Service implements EventBusProvider {
 	}
 	
 	private Bulb bulbSearch(String name) {
-		for (Gateway g : GatewayManager.getInstance().getGateways()) {
-			for (Bulb b : g.getBulbs()) {
+		synchronized (bulbs) {
+			log.info(
+					"Searching for bulb {} in bulbs: {}",
+					Arrays.toString(bulbs.toArray()));
+
+			for (Bulb b : bulbs) {
 				if (b.getLabel().equalsIgnoreCase(name)) {
 					return b;
 				}
 			}
 		}
 		
+		log.info("Bulb not found: {}", name);
+		
 		return null;
+	}
+	
+	private List<Bulb> bulbSearch(List<String> names) {
+		List<Bulb> ret = new ArrayList<>();
+		
+		synchronized (bulbs) {
+			log.info("Searching for bulbs: {} - Known: {}",
+					Arrays.toString(names.toArray()),
+					Arrays.toString(bulbs.toArray()));
+			
+			for (Bulb b : bulbs) {
+				if (names.contains(b.getLabel())) {
+					names.remove(b.getLabel());
+					ret.add(b);
+				}
+			}
+		}
+		
+		if (names.isEmpty()) {
+			log.info("All requested bulbs found");
+		} else {
+			log.info("Bulbs not found: {}", StringUtils.join(names, ", "));
+		}
+		
+		return ret;
 	}
 	
 	private Bulb findBulb(String name) {
@@ -263,13 +312,76 @@ public class LIFXService extends Service implements EventBusProvider {
 	}
 	
 	private List<Bulb> findBulbs(String[] bulbs) {
+		List<String> remaining = new ArrayList<>();
+		for (String bulb : bulbs) {
+			remaining.add(bulb);
+		}
+		
 		List<Bulb> ret = new ArrayList<>();
 		
-		for (String bulbName : bulbs) {
-			Bulb b = findBulb(bulbName);
-			if (b != null) {
-				ret.add(b);
+		if (!listener.isListening()) {
+			try {
+				listener.startListen();
+			} catch (BindException ex) {
+				log.error("Unable to bind to LIFX port.", ex);
+				showToast(getString(R.string.service_bind_failed));
+			} catch (IOException ex) {
+				log.error("Unable to start listening", ex);
 			}
+		}
+		
+		for (int i = 0; i < DISCOVERY_ATTEMPTS; i++) {
+			ret.addAll(bulbSearch(remaining));
+			
+			if (remaining.isEmpty()) {
+				// we found all the bulbs we're looking for
+				break;
+			}
+			
+			try {
+				Thread.sleep(DISCOVERY_WAIT);
+			} catch (InterruptedException ex) {
+				// ignore
+			}
+		}
+		
+		try {
+			listener.stopListen();
+		} catch (IOException ex) {
+			// ignore
+		}
+		
+		// try one more time
+		if (!remaining.isEmpty()) {
+			ret.addAll(bulbSearch(remaining));
+
+			if (!remaining.isEmpty()) {
+				log.warn(
+						"Bulbs could not be found: {}",
+						StringUtils.join(remaining, ", "));
+				return ret;
+			}
+		}
+		
+		log.debug("Bulbs found: {}", Arrays.toString(ret.toArray()));
+		
+		List<Bulb> deadBulbs = new LinkedList<>();
+		
+		// connect automatically
+		for (Bulb bulb : ret) {
+			if (!bulb.getGateway().isConnected()) {
+				try {
+					bulb.getGateway().connect();
+				} catch (IOException ex) {
+					log.error("Unable to connect to gateway {}", bulb.getGateway(), ex);
+					deadBulbs.add(bulb);
+				}
+			}
+		}
+		
+		if (!deadBulbs.isEmpty()) {
+			log.warn("Dead bulbs: {}", Arrays.toString(deadBulbs.toArray()));
+			ret.removeAll(deadBulbs);
 		}
 		
 		return ret;
@@ -297,12 +409,44 @@ public class LIFXService extends Service implements EventBusProvider {
 		}
 	}
 	
+	public void turnOn(String[] bulbNames) {
+		for (Bulb b : findBulbs(bulbNames)) {
+			try {
+				b.turnOn();
+			} catch (IOException ex) {
+				log.error("Error calling turnOn() for bulb: " + b, ex);
+			}
+		}
+	}
+	
 	public void turnOff() {
 		for (Gateway g : waitForGateways()) {
 			try {
 				g.turnOff();
 			} catch (IOException ex) {
 				log.error("Unable to issue turnOff() command to gateway", ex);
+			}
+		}
+	}
+	
+	public void turnOff(String bulbName) {
+		Bulb bulb = findBulb(bulbName);
+		
+		if (bulb != null) {
+			try {
+				bulb.turnOff();
+			} catch (IOException ex) {
+				log.error("Error calling turnOff()", ex);
+			}
+		}
+	}
+	
+	public void turnOff(String[] bulbNames) {
+		for (Bulb b : findBulbs(bulbNames)) {
+			try {
+				b.turnOff();
+			} catch (IOException ex) {
+				log.error("Error calling turnOff() for bulb: " + b, ex);
 			}
 		}
 	}
@@ -323,14 +467,18 @@ public class LIFXService extends Service implements EventBusProvider {
 		}
 	}
 	
-	public void turnOff(String bulbName) {
-		Bulb bulb = findBulb(bulbName);
-		
-		if (bulb != null) {
+	public void toggle(String[] bulbNames) {
+		for (Bulb bulb : findBulbs(bulbNames)) {
+			log.info("Toggling {}", bulb);
+			
 			try {
-				bulb.turnOff();
+				if (bulb.getPowerState() == PowerState.ON) {
+					bulb.turnOff();
+				} else {
+					bulb.turnOn();
+				}
 			} catch (IOException ex) {
-				log.error("Error calling turnOff()", ex);
+				log.error("Error calling toggle() on " + bulb, ex);
 			}
 		}
 	}
@@ -347,6 +495,20 @@ public class LIFXService extends Service implements EventBusProvider {
 				bulb.setColor(LIFXColor.fromRGB(red, green, blue));
 			} catch (IOException ex) {
 				log.error("Error calling setColor()", ex);
+			}
+		}
+	}
+	
+	public void setColor(String[] bulbNames, int color) {
+		for (Bulb bulb : findBulbs(bulbNames)) {
+			try {
+				int red = Color.red(color);
+				int green = Color.green(color);
+				int blue = Color.blue(color);
+				
+				bulb.setColor(LIFXColor.fromRGB(red, green, blue));
+			} catch (IOException ex) {
+				log.error("Error calling setColor() on " + bulb, ex);
 			}
 		}
 	}
@@ -384,12 +546,14 @@ public class LIFXService extends Service implements EventBusProvider {
 	}
 	
 	public List<Bulb> getBulbs() {
-		List<Bulb> ret = new LinkedList<>();
-		for (Gateway g : GatewayManager.getInstance().getGateways()) {
-			ret.addAll(g.getBulbs());
-		}
+		//List<Bulb> ret = new LinkedList<>();
+		//for (Gateway g : GatewayManager.getInstance().getGateways()) {
+		//	ret.addAll(g.getBulbs());
+		//}
+		//
+		//return ret;
 		
-		return ret;
+		return bulbs;
 	}
 	
 	public class LIFXBinder extends Binder {

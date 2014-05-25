@@ -73,40 +73,11 @@ public class ReceiverService extends IntentService {
 		Action action = Action.getAction(actionId);
 		
 		switch (action) {
-			case POWER_ON:
-				for (String bulbName : getBulbs()) {
-					lifx.turnOn(bulbName);
-				}
-
-				break;
-
-			case POWER_OFF:
-				for (String bulbName : getBulbs()) {
-					lifx.turnOff(bulbName);
-				}
-
-				break;
-
-			case POWER_TOGGLE:
-				for (String bulbName : getBulbs()) {
-					lifx.toggle(bulbName);
-				}
-
-				break;
-				
-			case COLOR_SET:
-				int color = getColor();
-				
-				for (String bulbName : getBulbs()) {
-					lifx.setColor(bulbName, color);
-				}
-				break;
-				
-			case COLOR_PULSE:
-				lifx.pulse(getBulbs(), getColor());
-				
-				break;
-			
+			case POWER_ON:     lifx.turnOn(  getBulbs());             break;
+			case POWER_OFF:    lifx.turnOff( getBulbs());             break;
+			case POWER_TOGGLE: lifx.toggle(  getBulbs());             break;
+			case COLOR_SET:    lifx.setColor(getBulbs(), getColor()); break;
+			case COLOR_PULSE:  lifx.pulse(   getBulbs(), getColor()); break;
 			default:
 				log.error("Unknown action: {}", actionId);
 				showToast("LIFX-Tasker: Uknown action " + actionId);

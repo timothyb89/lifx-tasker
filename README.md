@@ -1,7 +1,7 @@
 lifx-tasker
 ===========
 
-Tasker plugin for controlling LIFX bulbs. Currently in an alpha state!
+Tasker plugin for controlling LIFX bulbs. Get it on the [Play Store](https://play.google.com/store/apps/details?id=org.timothyb89.lifx.tasker).
 
 Does it work?
 -------------
