@@ -39,6 +39,8 @@ public class ReceiverService extends IntentService {
 	protected void onHandleIntent(Intent intent) {
 		bundle = intent.getBundleExtra(FireReceiver.KEY_BUNDLE);
 		
+		log.info("Attempting to start LIFX service...");
+		
 		startService(new Intent(this, LIFXService_.class));
 		bindService(
 				new Intent(this, LIFXService_.class),
@@ -72,6 +74,8 @@ public class ReceiverService extends IntentService {
 		String actionId = bundle.getString(FireReceiver.KEY_ACTION);
 		Action action = Action.getAction(actionId);
 		
+		log.debug("Processing action: {}", action);
+		
 		switch (action) {
 			case POWER_ON:     lifx.turnOn(  getBulbs());             break;
 			case POWER_OFF:    lifx.turnOff( getBulbs());             break;
@@ -90,6 +94,8 @@ public class ReceiverService extends IntentService {
 		
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
+			log.info("LIFX service started.");
+			
 			LIFXService lifx = ((LIFXService.LIFXBinder) service).getService();
 			
 			process(lifx);

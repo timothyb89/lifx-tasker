@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import org.androidannotations.annotations.EService;
 import org.androidannotations.annotations.UiThread;
 import org.apache.commons.lang3.StringUtils;
@@ -29,7 +31,6 @@ import org.timothyb89.lifx.bulb.LIFXColor;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.gateway.Gateway;
 import org.timothyb89.lifx.gateway.GatewayBulbDiscoveredEvent;
-import org.timothyb89.lifx.gateway.GatewayManager;
 import org.timothyb89.lifx.net.BroadcastListener;
 import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
 
@@ -45,8 +46,9 @@ public class LIFXService extends Service implements EventBusProvider {
 	public static final int  DISCOVERY_ATTEMPTS   = 5;
 	public static final long DISCOVERY_WAIT       = 100; // milliseconds
 	public static final long DISCOVERY_WAIT_SMALL = 250;
+	public static final long DISCOVERY_WAIT_LONG  = 5000;
 	
-	public static final long DEFAULT_PULSE_DELAY = 1000;
+	public static final long DEFAULT_PULSE_DELAY = 1500;
 	
 	private LIFXBinder binder;
 	
@@ -82,14 +84,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		// todo: listen for network state events and clear the list of gateways
 		// on network change
 		
-		try {
-			listener.startListen();
-		} catch (BindException ex) {
-			log.error("Unable to bind to LIFX port.", ex);
-			showToast(getString(R.string.service_bind_failed));
-		} catch (IOException ex) {
-			log.error("Unable to bind to lifx udp port", ex);
-		}
+		timedListen();
 	}
 
 	@Override
@@ -114,14 +109,44 @@ public class LIFXService extends Service implements EventBusProvider {
 		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 	}
 	
+	private void timedListen() {
+		if (listener.isListening()) {
+			return;
+		}
+		
+		try {
+			log.info("Starting gateway discovery...");
+			listener.startListen();
+
+			new Timer().schedule(new TimerTask() {
+
+				@Override
+				public void run() {
+					try {
+						listener.stopListen();
+						log.info(
+								"Gateway discovery ended, {} gateways found.",
+								gateways.size());
+					} catch (IOException ex) {
+						log.error("Unable to stop listener", ex);
+					}
+				}
+				
+			}, DISCOVERY_WAIT_LONG);
+		} catch (BindException ex) {
+			log.error("Unable to bind to LIFX port.", ex);
+			showToast(getString(R.string.service_bind_failed));
+		} catch (IOException ex) {
+			log.error("Unable to listen for gateways", ex);
+		}
+	}
+	
 	@EventHandler
 	public void gatewayDiscovered(GatewayDiscoveredEvent event) {
 		// stop listening after the first gateway for now
 		log.info("Found gateway: {}", event.getGateway());
 
-		synchronized (gateways) {
-			gateways.add(event.getGateway());
-		}
+		gateways.add(event.getGateway());
 		
 		// connect to the gateway and try to discover bulbs
 		try {
@@ -129,15 +154,6 @@ public class LIFXService extends Service implements EventBusProvider {
 			event.getGateway().connect();
 		} catch (IOException ex) {
 			log.error("Unable to connect to gateway", ex);
-		}
-		
-		// also stop listening
-		// this means we'll only ever discover one gateway (for now)
-		// TODO: be smarter about this
-		try {
-			listener.stopListen();
-		} catch (IOException ex) {
-			// ignore
 		}
 	}
 	
@@ -188,19 +204,18 @@ public class LIFXService extends Service implements EventBusProvider {
 			return ret;
 		}
 		
-		try {
-			listener.startListen();
+		timedListen();
 
-			Thread.sleep(DISCOVERY_WAIT_SMALL);
+		for (int i = 0; i < DISCOVERY_ATTEMPTS; i++) {
+			try {	
+				Thread.sleep(DISCOVERY_WAIT);
+			} catch (InterruptedException ex) {
+				// ignore
+			}
 
-			listener.stopListen();
-		} catch (BindException ex) {
-			log.error("Unable to bind to LIFX port.", ex);
-			showToast(getString(R.string.service_bind_failed));
-		} catch (IOException ex) {
-			log.error("Unable to listen for gateways", ex);
-		} catch (InterruptedException ex) {
-			// ignore
+			if (!gateways.isEmpty()) {
+				break;
+			} 
 		}
 
 		return getAvailableGateways();
@@ -213,6 +228,8 @@ public class LIFXService extends Service implements EventBusProvider {
 					Arrays.toString(bulbs.toArray()));
 
 			for (Bulb b : bulbs) {
+				// TODO: add support for MAC address
+				
 				if (b.getLabel().equalsIgnoreCase(name)) {
 					return b;
 				}
@@ -254,16 +271,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		// mainly we'll be waiting for discovery here
 		
 		// also start listening for new gateways, in case we missed one
-		if (!listener.isListening()) {
-			try {
-				listener.startListen();
-			} catch (BindException ex) {
-				log.error("Unable to bind to LIFX port.", ex);
-				showToast(getString(R.string.service_bind_failed));
-			} catch (IOException ex) {
-				log.error("Unable to start listening", ex);
-			}
-		}
+		timedListen();
 		
 		Bulb bulb = null;
 		for (int i = 0; i < DISCOVERY_ATTEMPTS; i++) {
@@ -274,16 +282,10 @@ public class LIFXService extends Service implements EventBusProvider {
 			}
 			
 			try {
-				Thread.sleep(DISCOVERY_WAIT);
+				Thread.sleep(DISCOVERY_WAIT_SMALL);
 			} catch (InterruptedException ex) {
 				// ignore
 			}
-		}
-		
-		try {
-			listener.stopListen();
-		} catch (IOException ex) {
-			// ignore
 		}
 		
 		// try one more time
@@ -313,22 +315,11 @@ public class LIFXService extends Service implements EventBusProvider {
 	
 	private List<Bulb> findBulbs(String[] bulbs) {
 		List<String> remaining = new ArrayList<>();
-		for (String bulb : bulbs) {
-			remaining.add(bulb);
-		}
+		remaining.addAll(Arrays.asList(bulbs));
 		
 		List<Bulb> ret = new ArrayList<>();
 		
-		if (!listener.isListening()) {
-			try {
-				listener.startListen();
-			} catch (BindException ex) {
-				log.error("Unable to bind to LIFX port.", ex);
-				showToast(getString(R.string.service_bind_failed));
-			} catch (IOException ex) {
-				log.error("Unable to start listening", ex);
-			}
-		}
+		timedListen();
 		
 		for (int i = 0; i < DISCOVERY_ATTEMPTS; i++) {
 			ret.addAll(bulbSearch(remaining));
@@ -343,12 +334,6 @@ public class LIFXService extends Service implements EventBusProvider {
 			} catch (InterruptedException ex) {
 				// ignore
 			}
-		}
-		
-		try {
-			listener.stopListen();
-		} catch (IOException ex) {
-			// ignore
 		}
 		
 		// try one more time
@@ -468,6 +453,8 @@ public class LIFXService extends Service implements EventBusProvider {
 	}
 	
 	public void toggle(String[] bulbNames) {
+		log.info("Attempting toggle on: {}", Arrays.toString(bulbNames));
+		
 		for (Bulb bulb : findBulbs(bulbNames)) {
 			log.info("Toggling {}", bulb);
 			
@@ -516,9 +503,9 @@ public class LIFXService extends Service implements EventBusProvider {
 	public void pulse(String[] bulbNames, int color) {
 		List<Bulb> bulbs = findBulbs(bulbNames);
 		
-		int red = Color.red(color);
+		int red   = Color.red(color);
 		int green = Color.green(color);
-		int blue = Color.blue(color);
+		int blue  = Color.blue(color);
 		LIFXColor c = LIFXColor.fromRGB(red, green, blue);
 		
 		Map<Bulb, LIFXColor> initialColors = new HashMap<>();

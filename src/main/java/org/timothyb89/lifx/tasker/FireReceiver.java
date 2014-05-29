@@ -31,15 +31,14 @@ public class FireReceiver extends BroadcastReceiver {
 			return;
 		}
 		
+		log.info("Received Tasker event!");
+		
 		Bundle bundle = intent.getBundleExtra(
 				com.twofortyfouram.locale.Intent.EXTRA_BUNDLE);
 		
 		Intent wrapped = new Intent(context, ReceiverService_.class);
 		wrapped.putExtra(KEY_BUNDLE, bundle);
-		
 		context.startService(wrapped);
 	}
-	
-	
 	
 }
