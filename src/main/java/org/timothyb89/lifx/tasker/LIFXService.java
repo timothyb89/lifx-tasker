@@ -46,7 +46,7 @@ public class LIFXService extends Service implements EventBusProvider {
 	public static final int  DISCOVERY_ATTEMPTS   = 5;
 	public static final long DISCOVERY_WAIT       = 100; // milliseconds
 	public static final long DISCOVERY_WAIT_SMALL = 250;
-	public static final long DISCOVERY_WAIT_LONG  = 5000;
+	public static final long DISCOVERY_WAIT_LONG  = 2500;
 	
 	public static final long DEFAULT_PULSE_DELAY = 1500;
 	
