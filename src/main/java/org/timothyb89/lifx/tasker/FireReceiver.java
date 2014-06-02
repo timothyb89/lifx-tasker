@@ -18,7 +18,7 @@ import org.timothyb89.lifx.bulb.Bulb;
  */
 public class FireReceiver extends BroadcastReceiver {
 
-	private static Logger log = LoggerFactory.getLogger(FireReceiver.class);
+	private static Logger log = Logging.init(FireReceiver.class);
 	
 	public static final String KEY_ACTION = "action";
 	public static final String KEY_BUNDLE = "bundle";

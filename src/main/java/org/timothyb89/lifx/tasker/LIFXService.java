@@ -41,7 +41,7 @@ import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
 @EService
 public class LIFXService extends Service implements EventBusProvider {
 
-	private static Logger log = LoggerFactory.getLogger(LIFXService.class);
+	private static Logger log = Logging.init(LIFXService.class);
 	
 	public static final int  DISCOVERY_ATTEMPTS   = 5;
 	public static final long DISCOVERY_WAIT       = 100; // milliseconds
@@ -225,6 +225,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		synchronized (bulbs) {
 			log.info(
 					"Searching for bulb {} in bulbs: {}",
+					name,
 					Arrays.toString(bulbs.toArray()));
 
 			for (Bulb b : bulbs) {
@@ -441,6 +442,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		
 		if (bulb != null) {
 			try {
+				log.info("Toggling: {}", bulb);
 				if (bulb.getPowerState() == PowerState.ON) {
 					bulb.turnOff();
 				} else {
@@ -456,7 +458,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		log.info("Attempting toggle on: {}", Arrays.toString(bulbNames));
 		
 		for (Bulb bulb : findBulbs(bulbNames)) {
-			log.info("Toggling {}", bulb);
+			log.info("Toggling one of many: {}", bulb);
 			
 			try {
 				if (bulb.getPowerState() == PowerState.ON) {

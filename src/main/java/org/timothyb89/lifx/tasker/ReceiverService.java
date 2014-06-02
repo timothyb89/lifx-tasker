@@ -25,7 +25,7 @@ import org.timothyb89.lifx.tasker.editor.ColorEditor;
 @EService
 public class ReceiverService extends IntentService {
 
-	private static Logger log = LoggerFactory.getLogger(ReceiverService.class);
+	private static Logger log = Logging.init(ReceiverService.class);
 	
 	public static final int PULSE_DEFAULT_LENGTH = 500;
 	

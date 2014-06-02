@@ -24,14 +24,13 @@ import org.androidannotations.annotations.UiThread;
 import org.androidannotations.annotations.ViewById;
 import org.apmem.tools.layouts.FlowLayout;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.timothyb89.lifx.bulb.Bulb;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.tasker.EditActivity;
 import org.timothyb89.lifx.tasker.LIFXService;
 import org.timothyb89.lifx.tasker.LIFXService_;
+import org.timothyb89.lifx.tasker.Logging;
 import org.timothyb89.lifx.tasker.R;
-import static org.timothyb89.lifx.tasker.editor.ColorEditor.KEY_COLOR;
 
 /**
  * An activity to select bulbs from a list.
@@ -42,7 +41,7 @@ public class BulbListEditor extends Activity {
 
 	public static final String KEY_BULBS = "bulbs";
 	
-	private static Logger log = LoggerFactory.getLogger(BulbListEditor.class);
+	private static Logger log = Logging.init(BulbListEditor.class);
 	
 	@ViewById(R.id.select_all)
 	protected Button selectAllButton;

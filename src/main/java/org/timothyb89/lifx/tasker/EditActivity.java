@@ -39,7 +39,7 @@ import org.timothyb89.lifx.tasker.editor.Parameter;
 @EActivity(R.layout.activity_edit)
 public class EditActivity extends Activity {
 	
-	private static Logger log = LoggerFactory.getLogger(EditActivity.class);
+	private static Logger log = Logging.init(EditActivity.class);
 	
 	public static final int REQUEST_SHOW_EDITOR = 1000;
 	

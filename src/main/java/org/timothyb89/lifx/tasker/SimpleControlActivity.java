@@ -21,7 +21,6 @@ import org.androidannotations.annotations.UiThread;
 import org.androidannotations.annotations.ViewById;
 import org.apmem.tools.layouts.FlowLayout;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.timothyb89.eventbus.EventHandler;
 import org.timothyb89.lifx.bulb.Bulb;
 import org.timothyb89.lifx.bulb.BulbPowerStateUpdatedEvent;
@@ -31,7 +30,7 @@ import org.timothyb89.lifx.tasker.LIFXService.LIFXBinder;
 @EActivity(R.layout.activity_main)
 public class SimpleControlActivity extends Activity {
 	
-	private static Logger log = LoggerFactory.getLogger(SimpleControlActivity.class);
+	private static Logger log = Logging.init(SimpleControlActivity.class);
 	
 	@ViewById(R.id.gateway_bulbs_off)
 	protected Button bulbsOffButton;
@@ -119,6 +118,9 @@ public class SimpleControlActivity extends Activity {
 	
 	@Background
 	protected void toggle(Bulb bulb) {
+		lifx.toggle(bulb.getLabel());
+		
+		/*
 		// attempt to reconnect if needed
 		try {
 			if (!bulb.getGateway().isConnected()) {
@@ -133,12 +135,14 @@ public class SimpleControlActivity extends Activity {
 		try {
 			if (bulb.getPowerState() == PowerState.OFF) {
 				bulb.turnOn();
+				log.debug("Toggled bulb on: {}", bulb);
 			} else {
 				bulb.turnOff();
+				log.debug("Toggled bulb off: {}", bulb);
 			}
 		} catch (IOException ex) {
 			log.error("Unable to toggle power state for " + bulb, ex);
-		}
+		}*/
 	}
 	
 	@UiThread
