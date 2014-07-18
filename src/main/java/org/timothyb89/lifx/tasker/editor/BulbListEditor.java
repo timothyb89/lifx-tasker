@@ -98,6 +98,15 @@ public class BulbListEditor extends Activity {
 				Context.BIND_AUTO_CREATE);
 	}
 
+	@Override
+	protected void onStop() {
+		super.onStop();
+		
+		if (lifx != null) {
+			lifx.closeSocket();
+		}
+	}
+
 	protected void serviceConnected() {
 		bulbsUpdated();
 		

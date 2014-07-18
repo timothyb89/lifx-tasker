@@ -12,31 +12,31 @@ import org.slf4j.LoggerFactory;
  * @author tim
  */
 public class Logging {
-	
+
 	private static volatile boolean initialized = false;
-	
+
 	private static void configure() {
 		LogConfigurator conf = new LogConfigurator();
-                
-        conf.setFileName(Environment.getExternalStorageDirectory()
+
+		conf.setFileName(Environment.getExternalStorageDirectory()
 				+ File.separator + "lifx-tasker.log");
-        conf.setRootLevel(Level.DEBUG);
-		
-        // Set log level of a specific logger
-        conf.setLevel("org.apache", Level.ERROR);
-		
-        conf.configure();
-		
+		conf.setRootLevel(Level.DEBUG);
+
+		conf.setUseFileAppender(true);
+		conf.setUseLogCatAppender(false);
+
+		conf.configure();
+
 	}
-	
+
 	public static Logger init(Class c) {
 		if (!initialized) {
 			configure();
-			
+
 			initialized = true;
 		}
-		
+
 		return LoggerFactory.getLogger(c);
 	}
-	
+
 }

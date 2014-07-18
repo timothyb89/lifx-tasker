@@ -76,6 +76,8 @@ public class ReceiverService extends IntentService {
 		
 		log.debug("Processing action: {}", action);
 		
+		lifx.purgeBulbs();
+		
 		switch (action) {
 			case POWER_ON:     lifx.turnOn(  getBulbs());             break;
 			case POWER_OFF:    lifx.turnOff( getBulbs());             break;
@@ -87,6 +89,17 @@ public class ReceiverService extends IntentService {
 				showToast("LIFX-Tasker: Uknown action " + actionId);
 				
 				break;
+		}
+		
+		// wait a bit and do a status update
+		//try {
+		//	Thread.sleep(750);
+		//} catch (InterruptedException ex) { } // ignore
+		
+		//lifx.refreshAll();
+		
+		if (lifx != null) {
+			lifx.closeSocket();
 		}
 	}
 	

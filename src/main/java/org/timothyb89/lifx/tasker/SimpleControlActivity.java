@@ -68,6 +68,17 @@ public class SimpleControlActivity extends Activity {
 		
 		unbindService(connection);
 	}
+
+	@Override
+	protected void onStop() {
+		super.onStop();
+		
+		if (lifx != null) {
+			lifx.closeSocket();
+			
+			lifx.bus().deregister(this);
+		}
+	}
 	
 	@Background
 	protected void initService() {
@@ -83,6 +94,8 @@ public class SimpleControlActivity extends Activity {
 	
 	protected void serviceConnected() {
 		bulbsUpdated();
+		
+		lifx.refreshAll();
 		
 		log.info("LIFX: {}", lifx);
 		if (lifx != null) {
@@ -120,29 +133,11 @@ public class SimpleControlActivity extends Activity {
 	protected void toggle(Bulb bulb) {
 		lifx.toggle(bulb.getLabel());
 		
-		/*
-		// attempt to reconnect if needed
 		try {
-			if (!bulb.getGateway().isConnected()) {
-				bulb.getGateway().connect();
-				showToast("Reconnected!"); // TODO: remove me
-			}
-		} catch (IOException ex) {
-			log.error("Unable to connect to bulb " + bulb, ex);
-			showToast("Error: couldn't connect to bulb.");
-		}
+			Thread.sleep(750);
+		} catch (InterruptedException ex) {}
 		
-		try {
-			if (bulb.getPowerState() == PowerState.OFF) {
-				bulb.turnOn();
-				log.debug("Toggled bulb on: {}", bulb);
-			} else {
-				bulb.turnOff();
-				log.debug("Toggled bulb off: {}", bulb);
-			}
-		} catch (IOException ex) {
-			log.error("Unable to toggle power state for " + bulb, ex);
-		}*/
+		lifx.refreshAll();
 	}
 	
 	@UiThread

@@ -31,6 +31,7 @@ import org.timothyb89.lifx.bulb.LIFXColor;
 import org.timothyb89.lifx.bulb.PowerState;
 import org.timothyb89.lifx.gateway.Gateway;
 import org.timothyb89.lifx.gateway.GatewayBulbDiscoveredEvent;
+import org.timothyb89.lifx.gateway.GatewayManager;
 import org.timothyb89.lifx.net.BroadcastListener;
 import org.timothyb89.lifx.net.GatewayDiscoveredEvent;
 
@@ -123,7 +124,7 @@ public class LIFXService extends Service implements EventBusProvider {
 				@Override
 				public void run() {
 					try {
-						listener.stopListen();
+						listener.stopDiscovery();
 						log.info(
 								"Gateway discovery ended, {} gateways found.",
 								gateways.size());
@@ -143,18 +144,14 @@ public class LIFXService extends Service implements EventBusProvider {
 	
 	@EventHandler
 	public void gatewayDiscovered(GatewayDiscoveredEvent event) {
-		// stop listening after the first gateway for now
-		log.info("Found gateway: {}", event.getGateway());
-
-		gateways.add(event.getGateway());
+		Gateway gateway = event.getGateway();
 		
-		// connect to the gateway and try to discover bulbs
-		try {
-			event.getGateway().bus().register(this);
-			event.getGateway().connect();
-		} catch (IOException ex) {
-			log.error("Unable to connect to gateway", ex);
-		}
+		log.info("Found gateway: {}", gateway);
+
+		gateways.add(gateway);
+		bulbs.addAll(gateway.getBulbs());
+		
+		gateway.bus().register(this);
 	}
 	
 	@EventHandler
@@ -165,32 +162,8 @@ public class LIFXService extends Service implements EventBusProvider {
 		bulbs.add(event.getBulb());
 		
 		bus.push(new BulbListUpdatedEvent());
-	}
-	
-	/**
-	 * Gets and connects to all known gateways, if possible. Only those that
-	 * currently have a connection (or can be connected to) will be returned.
-	 * @return a list of available gateways
-	 */
-	private List<Gateway> getAvailableGateways() {
-		List<Gateway> ret = new LinkedList<>();
 		
-		synchronized (gateways) {
-			for (Gateway g : gateways) {
-				if (g.isConnected()) {
-					ret.add(g);
-				} else {
-					try {
-						g.connect();
-						ret.add(g);
-					} catch (IOException ex) {
-						log.error("Unable to connect to gateway", ex);
-					}
-				}
-			}
-		}
-		
-		return ret;
+		refreshAll();
 	}
 	
 	/**
@@ -199,9 +172,9 @@ public class LIFXService extends Service implements EventBusProvider {
 	 * @return a list of gateways
 	 */
 	private List<Gateway> waitForGateways() {
-		List<Gateway> ret = getAvailableGateways();
-		if (!ret.isEmpty()) {
-			return ret;
+		if (!gateways.isEmpty()) {
+			refreshAll();
+			return gateways;
 		}
 		
 		timedListen();
@@ -218,7 +191,7 @@ public class LIFXService extends Service implements EventBusProvider {
 			} 
 		}
 
-		return getAvailableGateways();
+		return gateways;
 	}
 	
 	private Bulb bulbSearch(String name) {
@@ -301,16 +274,6 @@ public class LIFXService extends Service implements EventBusProvider {
 		
 		log.debug("Bulb found: {}", bulb);
 		
-		// connect automatically
-		if (!bulb.getGateway().isConnected()) {
-			try {
-				bulb.getGateway().connect();
-			} catch (IOException ex) {
-				log.error("Unable to connect to gateway {}", bulb.getGateway(), ex);
-				return null;
-			}
-		}
-		
 		return bulb;
 	}
 	
@@ -350,25 +313,6 @@ public class LIFXService extends Service implements EventBusProvider {
 		}
 		
 		log.debug("Bulbs found: {}", Arrays.toString(ret.toArray()));
-		
-		List<Bulb> deadBulbs = new LinkedList<>();
-		
-		// connect automatically
-		for (Bulb bulb : ret) {
-			if (!bulb.getGateway().isConnected()) {
-				try {
-					bulb.getGateway().connect();
-				} catch (IOException ex) {
-					log.error("Unable to connect to gateway {}", bulb.getGateway(), ex);
-					deadBulbs.add(bulb);
-				}
-			}
-		}
-		
-		if (!deadBulbs.isEmpty()) {
-			log.warn("Dead bulbs: {}", Arrays.toString(deadBulbs.toArray()));
-			ret.removeAll(deadBulbs);
-		}
 		
 		return ret;
 	}
@@ -534,15 +478,37 @@ public class LIFXService extends Service implements EventBusProvider {
 		}
 	}
 	
+	public void refreshAll() {
+		for (Gateway g : gateways) {
+			try {
+				g.refreshBulbs();
+			} catch (IOException ex) {
+				log.error("Error in refreshAll()", ex);
+			}
+		}
+	}
+	
+	/**
+	 * Purges all bulb data so the next action will force a complete refresh.
+	 */
+	public void purgeBulbs() {
+		GatewayManager.getInstance().purge();
+		bulbs.clear();
+		gateways.clear();
+	}
+	
 	public List<Bulb> getBulbs() {
-		//List<Bulb> ret = new LinkedList<>();
-		//for (Gateway g : GatewayManager.getInstance().getGateways()) {
-		//	ret.addAll(g.getBulbs());
-		//}
-		//
-		//return ret;
-		
 		return bulbs;
+	}
+	
+	/**
+	 * Closes the bound UDP socket. This must be called when finished to allow
+	 * other apps to make use of the port.
+	 */
+	public void closeSocket() {
+		try {
+			listener.stopListen();
+		} catch (IOException ex) {}
 	}
 	
 	public class LIFXBinder extends Binder {
