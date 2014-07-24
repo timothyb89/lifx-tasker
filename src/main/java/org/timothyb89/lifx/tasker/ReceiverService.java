@@ -28,8 +28,12 @@ public class ReceiverService extends IntentService {
 	private static Logger log = Logging.init(ReceiverService.class);
 	
 	public static final int PULSE_DEFAULT_LENGTH = 500;
+	public static final int CONNECTION_MAX_ATTEMPTS = 1;
 	
 	private Bundle bundle;
+	
+	private volatile int connectionAttempts;
+	private volatile boolean connectionMade;
 	
 	public ReceiverService() {
 		super("ReceiverService");
@@ -42,17 +46,52 @@ public class ReceiverService extends IntentService {
 		log.info("Attempting to start LIFX service...");
 		
 		startService(new Intent(this, LIFXService_.class));
-		bindService(
-				new Intent(this, LIFXService_.class),
-				connection,
-				Context.BIND_AUTO_CREATE);
+
+		connectionMade = false;
+		connectionAttempts = 0;
+		
+		Intent service = new Intent(this, LIFXService_.class);
+		
+		// an awful hack
+		// for some reason bindService() occassionally fails to ever connect
+		// the service starts in the background, but we're never notified
+		while (!connectionMade) {
+			if (connectionAttempts > 0) {
+				// old instances will still be floating around
+				// we need to kill them to make sure we can actually bind the
+				// port
+				stopService(service);
+			}
+			
+			boolean ret = bindService(
+					new Intent(this, LIFXService_.class),
+					connection,
+					Context.BIND_AUTO_CREATE);
+
+			log.info("Service bound, returned {}", ret);
+			
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException ex) {
+				break;
+			}
+			
+			connectionAttempts++;
+			if (connectionAttempts > CONNECTION_MAX_ATTEMPTS) {
+				break;
+			}
+			
+			log.warn("Service connection failed, retrying...");
+		}
 	}
 
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
 		
-		unbindService(connection);
+		if (connection != null) {
+			unbindService(connection);
+		}
 	}
 	
 	@UiThread
@@ -76,7 +115,8 @@ public class ReceiverService extends IntentService {
 		
 		log.debug("Processing action: {}", action);
 		
-		lifx.purgeBulbs();
+		// force a refresh
+		//lifx.purgeBulbs();
 		
 		switch (action) {
 			case POWER_ON:     lifx.turnOn(  getBulbs());             break;
@@ -86,7 +126,7 @@ public class ReceiverService extends IntentService {
 			case COLOR_PULSE:  lifx.pulse(   getBulbs(), getColor()); break;
 			default:
 				log.error("Unknown action: {}", actionId);
-				showToast("LIFX-Tasker: Uknown action " + actionId);
+				showToast("LIFX Tasker: Unknown action " + actionId);
 				
 				break;
 		}
@@ -96,18 +136,21 @@ public class ReceiverService extends IntentService {
 		//	Thread.sleep(750);
 		//} catch (InterruptedException ex) { } // ignore
 		
-		//lifx.refreshAll();
+		lifx.refreshCycle();
 		
-		if (lifx != null) {
-			lifx.closeSocket();
-		}
+		lifx.closeSocket();
+		//lifx.stop();
+		
+		stopSelf();
 	}
 	
 	private ServiceConnection connection = new ServiceConnection() {
 		
 		@Override
 		public void onServiceConnected(ComponentName name, IBinder service) {
-			log.info("LIFX service started.");
+			connectionMade = true;
+			
+			log.info("LIFX service connected.");
 			
 			LIFXService lifx = ((LIFXService.LIFXBinder) service).getService();
 			
@@ -117,6 +160,7 @@ public class ReceiverService extends IntentService {
 		@Override
 		public void onServiceDisconnected(ComponentName name) {
 			// ignore
+			log.debug("LIFX service disconnected.");
 		}
 		
 	};

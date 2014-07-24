@@ -132,12 +132,7 @@ public class SimpleControlActivity extends Activity {
 	@Background
 	protected void toggle(Bulb bulb) {
 		lifx.toggle(bulb.getLabel());
-		
-		try {
-			Thread.sleep(750);
-		} catch (InterruptedException ex) {}
-		
-		lifx.refreshAll();
+		lifx.refreshCycle();
 	}
 	
 	@UiThread

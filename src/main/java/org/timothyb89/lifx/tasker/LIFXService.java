@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import org.androidannotations.annotations.Background;
 import org.androidannotations.annotations.EService;
 import org.androidannotations.annotations.UiThread;
 import org.apache.commons.lang3.StringUtils;
@@ -85,7 +86,7 @@ public class LIFXService extends Service implements EventBusProvider {
 		// todo: listen for network state events and clear the list of gateways
 		// on network change
 		
-		timedListen();
+		backgroundTimedListen();
 	}
 
 	@Override
@@ -140,6 +141,11 @@ public class LIFXService extends Service implements EventBusProvider {
 		} catch (IOException ex) {
 			log.error("Unable to listen for gateways", ex);
 		}
+	}
+	
+	@Background
+	public void backgroundTimedListen() {
+		timedListen();
 	}
 	
 	@EventHandler
@@ -489,6 +495,25 @@ public class LIFXService extends Service implements EventBusProvider {
 	}
 	
 	/**
+	 * Executes {@link #refreshAll()} several times over a span of 1s
+	 */
+	public void refreshCycle() {
+		for (int i = 0; i < 5; i++) {
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException ex) {
+				break;
+			}
+			
+			if (!listener.isListening()) {
+				break;
+			}
+			
+			refreshAll();
+		}
+	}
+	
+	/**
 	 * Purges all bulb data so the next action will force a complete refresh.
 	 */
 	public void purgeBulbs() {
@@ -508,7 +533,13 @@ public class LIFXService extends Service implements EventBusProvider {
 	public void closeSocket() {
 		try {
 			listener.stopListen();
+			
+			log.info("Socket closed.");
 		} catch (IOException ex) {}
+	}
+	
+	public void stop() {
+		stopSelf();
 	}
 	
 	public class LIFXBinder extends Binder {
